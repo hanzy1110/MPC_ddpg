@@ -1,0 +1,52 @@
+* Notes for the project:
+
+** MPC Control:
+I have a state space model for the mpc control used to control the opening of a valve
+Out variables should control last_output_velocity, last_output_displacemnt
+How does MPC control work?
+
+\begin{equation}
+    \dot{x}(t) &= Ax(t) + Bu(t)
+\end{equation}
+
+\begin{equation}
+    y(t) &= Cx(t) + Du(t)
+\end{equation}
+
+*** MPC Control
+ MPC is based on iterative, finite-horizon optimization of a plant model. At time t t the current plant state is sampled and a cost minimizing control strategy is computed (via a numerical minimization algorithm) for a relatively short time horizon in the future: [ t , t + T ] [t,t+T]
+Model predictive control is a multivariable control algorithm that uses:
+
+\begin{itemize}
+\item    an internal dynamic model of the process
+\item    a cost function J over the receding horizon
+\item    an optimization algorithm minimizing the cost function J using the control input u
+\end{itemize}
+
+**** Equations:
+
+$n_x = 6, N = 1$
+
+$shape(x) = (6, 1)$
+$shape(u) = (3, 1)$
+
+\begin{itemize}
+    \item Variables $x, u$
+    \item constraints:
+    \begin{itemize}
+        \item $x_{k+1} = A_d x_k + B_d u_k$
+        \item $u_k >= -10$, $u_k<0$
+    \end{itemize}
+\end{itemize}
+
+Controlup outputs the predicted control signal $u[:,0]$
+
+\bold{Adapt the control methods to provide the predicted state of the system to the DDPG framework}
+
+** DDPG:
+Reinforcement learning technique that strives to combine perception capabilities of Deep learning with Decision capabilities of conventional reinforcement learning.
+
+\begin{itemize}
+    \item The perception step that gives information about the enviroment.
+    \item The decision step that self actualices to get an appropiate response.
+\end{itemize}

@@ -12,6 +12,8 @@ class MainWindow(object):
     def __init__(self):
         self.is_running = False
         self.rett = None
+
+        # TKInterINIT
         self.root = tkinter.Tk()
         self.left_frame = tkinter.Frame(self.root)
         self.left_frame.pack(side="left")
@@ -19,9 +21,13 @@ class MainWindow(object):
             self.left_frame, text="launch/stop", command=self.launch_callback
         )
         self.button.pack()
+
+        # Important for AmeCommunication
         self.shm_entry = tkinter.Entry(self.left_frame, width=30)
         self.shm_entry.insert(tkinter.END, "shm_0")
         self.shm_entry.pack()
+
+        #TKInter stuff:
         self.time_val = tkinter.StringVar()
         self.time_val.set("time_val")
         self.output_val = tkinter.StringVar()
@@ -35,13 +41,18 @@ class MainWindow(object):
         self.canvas = tkinter.Canvas(self.frame)
         self.canvas.pack()
         self.chart = Chart(self.canvas, (0.0, 5.0), (1e-6, -1e-6))
+
         self.shm = AmeCommunication.AmeSharedmem()
+
         self.chrono = Chrono()
         self.last_refresh_time = 0
+
+        #MPC Control:
         self.mpc_controllerup = MPCControllerup()
         self.mpc_controllerdown = MPCControllerdown()
         self.mpc_controllerupp = MPCControllerupp()
 
+        # Outfile
         self.file = open(DATA_FILE, "w")
 
         tkinter.mainloop()
@@ -71,7 +82,8 @@ class MainWindow(object):
             try:
                 current_state = np.array(
                     [self.last_output_velocity, 0, 0, 0, 0, 0]
-                )  # Modify the state accordingly-self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)[1]*20
+                )
+                # Modify the state accordingly-self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)[1]*20
                 output_val_in3 = (
                     self.mpc_controllerupp.controlup(
                         current_state, self.last_output_dis_target
@@ -91,6 +103,9 @@ class MainWindow(object):
                     * 0.52
                 )
 
+                # Just Communication with Amesim?
+                # Here it returns the output from the rectangle
+                # The data files should be read here
                 rett = self.shm.exchange(
                     [0.0, t, output_val_in3, output_val_down, output_val_up]
                 )
@@ -101,7 +116,7 @@ class MainWindow(object):
                 self.last_output_velocity_target = rett[6]
 
                 new_point = (rett[1], rett[2], rett[3], rett[5], rett[6])
-                file.write(
+                self.file.write(
                     f"{new_point[0]} {new_point[1]} {new_point[2]} {new_point[3]} {new_point[4]}\n"
                 )
 
@@ -109,6 +124,8 @@ class MainWindow(object):
                 print(f"Error during exchange: {e}")
                 return
 
+            # Render points in chart:
+            # [ Not useful ]
             self.chart.add_point(rett[1], rett[2])
             t = self.chrono.get_time()
             if t - self.last_refresh_time > 0.1:
