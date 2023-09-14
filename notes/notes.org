@@ -63,3 +63,12 @@ Reinforcement learning technique that strives to combine perception capabilities
         \item controllerup: $[0, 250]$
     \end{itemize}
 \end{itemize}
+
+** Data flow:
+
+\begin{itemize}
+    \item MPC: Takes in current state $x_k$ and a target reference
+    \item MPC: outputs predicted state $x_{k+1}$, predicted control $u_{k+1}$
+    \item DDPG Takes in predicted state and outputs a control action $u_{k+1}$
+    \item Why should I Update target reference?
+\end{itemize}

@@ -1,3 +1,4 @@
+import pathlib
 import gc
 import logging
 import os
@@ -8,9 +9,14 @@ from torch.optim import Adam
 
 from utils.nets import Actor, Critic
 
-logger = logging.getLogger('ddpg')
-logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
+# logging = logging.getLogger('ddpg')
+# logging.setLevel(logging.INFO)
+# logging.addHandler(logging.StreamHandler())
+LOG_FILE = pathlib.Path(__file__).parent.parent / "log/events.log"
+FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+logging.basicConfig(
+    filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
+)
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,8 +33,16 @@ def hard_update(target, source):
 
 
 class DDPG(object):
-
-    def __init__(self, gamma, tau, hidden_size, num_inputs, action_space, checkpoint_dir=None):
+    def __init__(
+        self,
+        gamma,
+        tau,
+        hidden_size,
+        num_inputs,
+        action_space,
+        name,
+        checkpoint_dir=None,
+    ):
         """
         Deep Deterministic Policy Gradient
         Read the detail about it here:
@@ -39,9 +53,9 @@ class DDPG(object):
             tau:            Update factor for the actor and the critic
             hidden_size:    Number of units in the hidden layers of the actor and critic. Must be of length 2.
             num_inputs:     Size of the input states
-            action_space:   The action space of the used environment. Used to clip the actions and 
+            action_space:   The action space of the used environment. Used to clip the actions and
                             to distinguish the number of outputs
-            checkpoint_dir: Path as String to the directory to save the networks. 
+            checkpoint_dir: Path as String to the directory to save the networks.
                             If None then "./saved_models/" will be used
         """
 
@@ -49,21 +63,25 @@ class DDPG(object):
         self.tau = tau
         self.action_space = action_space
 
+        self.name = name
+
         # Define the actor
         self.actor = Actor(hidden_size, num_inputs, self.action_space).to(device)
         self.actor_target = Actor(hidden_size, num_inputs, self.action_space).to(device)
 
         # Define the critic
         self.critic = Critic(hidden_size, num_inputs, self.action_space).to(device)
-        self.critic_target = Critic(hidden_size, num_inputs, self.action_space).to(device)
+        self.critic_target = Critic(hidden_size, num_inputs, self.action_space).to(
+            device
+        )
 
         # Define the optimizers for both networks
-        self.actor_optimizer = Adam(self.actor.parameters(),
-                                    lr=1e-4)  # optimizer for the actor network
-        self.critic_optimizer = Adam(self.critic.parameters(),
-                                     lr=1e-3,
-                                     weight_decay=1e-2
-                                     )  # optimizer for the critic network
+        self.actor_optimizer = Adam(
+            self.actor.parameters(), lr=1e-4
+        )  # optimizer for the actor network
+        self.critic_optimizer = Adam(
+            self.critic.parameters(), lr=1e-3, weight_decay=1e-2
+        )  # optimizer for the critic network
 
         # Make sure both targets are with the same weight
         hard_update(self.actor_target, self.actor)
@@ -75,14 +93,14 @@ class DDPG(object):
         else:
             self.checkpoint_dir = checkpoint_dir
         os.makedirs(self.checkpoint_dir, exist_ok=True)
-        logger.info('Saving all checkpoints to {}'.format(self.checkpoint_dir))
+        logging.info("Saving all checkpoints to {}".format(self.checkpoint_dir))
 
     def calc_action(self, state, action_noise=None):
         """
         Evaluates the action to perform in a given state
 
         Arguments:
-            state:          State to perform the action on in the env. 
+            state:          State to perform the action on in the env.
                             Used to evaluate the action.
             action_noise:   If not None, the noise to apply on the evaluated action
         """
@@ -125,12 +143,16 @@ class DDPG(object):
 
         # Get the actions and the state values to compute the targets
         next_action_batch = self.actor_target(next_state_batch)
-        next_state_action_values = self.critic_target(next_state_batch, next_action_batch.detach())
+        next_state_action_values = self.critic_target(
+            next_state_batch, next_action_batch.detach()
+        )
 
         # Compute the target
         reward_batch = reward_batch.unsqueeze(1)
         done_batch = done_batch.unsqueeze(1)
-        expected_values = reward_batch + (1.0 - done_batch) * self.gamma * next_state_action_values
+        expected_values = (
+            reward_batch + (1.0 - done_batch) * self.gamma * next_state_action_values
+        )
 
         # TODO: Clipping the expected values here?
         # expected_value = torch.clamp(expected_value, min_value, max_value)
@@ -163,28 +185,38 @@ class DDPG(object):
             last_timestep:  Last timestep in training before saving
             replay_buffer:  Current replay buffer
         """
-        checkpoint_name = self.checkpoint_dir + '/ep_{}.pth.tar'.format(last_timestep)
-        logger.info('Saving checkpoint...')
+        checkpoint_name = (
+            self.checkpoint_dir + f"/{self.name}_ep_{last_timestep}.pth.tar"
+        )
+        logging.info("Saving checkpoint...")
         checkpoint = {
-            'last_timestep': last_timestep,
-            'actor': self.actor.state_dict(),
-            'critic': self.critic.state_dict(),
-            'actor_target': self.actor_target.state_dict(),
-            'critic_target': self.critic_target.state_dict(),
-            'actor_optimizer': self.actor_optimizer.state_dict(),
-            'critic_optimizer': self.critic_optimizer.state_dict(),
-            'replay_buffer': replay_buffer,
+            "last_timestep": last_timestep,
+            "actor": self.actor.state_dict(),
+            "critic": self.critic.state_dict(),
+            "actor_target": self.actor_target.state_dict(),
+            "critic_target": self.critic_target.state_dict(),
+            "actor_optimizer": self.actor_optimizer.state_dict(),
+            "critic_optimizer": self.critic_optimizer.state_dict(),
+            "replay_buffer": replay_buffer,
         }
-        logger.info('Saving model at timestep {}...'.format(last_timestep))
+        logging.info("Saving model at timestep {}...".format(last_timestep))
         torch.save(checkpoint, checkpoint_name)
         gc.collect()
-        logger.info('Saved model at timestep {} to {}'.format(last_timestep, self.checkpoint_dir))
+        logging.info(
+            "Saved model at timestep {} to {}".format(
+                last_timestep, self.checkpoint_dir
+            )
+        )
 
     def get_path_of_latest_file(self):
         """
         Returns the latest created file in 'checkpoint_dir'
         """
-        files = [file for file in os.listdir(self.checkpoint_dir) if (file.endswith(".pt") or file.endswith(".tar"))]
+        files = [
+            file
+            for file in os.listdir(self.checkpoint_dir)
+            if (file.endswith(".pt") or file.endswith(".tar"))
+        ]
         filepaths = [os.path.join(self.checkpoint_dir, file) for file in files]
         last_file = max(filepaths, key=os.path.getctime)
         return os.path.abspath(last_file)
@@ -203,24 +235,28 @@ class DDPG(object):
             checkpoint_path = self.get_path_of_latest_file()
 
         if os.path.isfile(checkpoint_path):
-            logger.info("Loading checkpoint...({})".format(checkpoint_path))
-            key = 'cuda' if torch.cuda.is_available() else 'cpu'
+            logging.info("Loading checkpoint...({})".format(checkpoint_path))
+            key = "cuda" if torch.cuda.is_available() else "cpu"
 
             checkpoint = torch.load(checkpoint_path, map_location=key)
-            start_timestep = checkpoint['last_timestep'] + 1
-            self.actor.load_state_dict(checkpoint['actor'])
-            self.critic.load_state_dict(checkpoint['critic'])
-            self.actor_target.load_state_dict(checkpoint['actor_target'])
-            self.critic_target.load_state_dict(checkpoint['critic_target'])
-            self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer'])
-            self.critic_optimizer.load_state_dict(checkpoint['critic_optimizer'])
-            replay_buffer = checkpoint['replay_buffer']
+            start_timestep = checkpoint["last_timestep"] + 1
+            self.actor.load_state_dict(checkpoint["actor"])
+            self.critic.load_state_dict(checkpoint["critic"])
+            self.actor_target.load_state_dict(checkpoint["actor_target"])
+            self.critic_target.load_state_dict(checkpoint["critic_target"])
+            self.actor_optimizer.load_state_dict(checkpoint["actor_optimizer"])
+            self.critic_optimizer.load_state_dict(checkpoint["critic_optimizer"])
+            replay_buffer = checkpoint["replay_buffer"]
 
             gc.collect()
-            logger.info('Loaded model at timestep {} from {}'.format(start_timestep, checkpoint_path))
+            logging.info(
+                "Loaded model at timestep {} from {}".format(
+                    start_timestep, checkpoint_path
+                )
+            )
             return start_timestep, replay_buffer
         else:
-            raise OSError('Checkpoint not found')
+            raise OSError("Checkpoint not found")
 
     def set_eval(self):
         """
@@ -243,9 +279,9 @@ class DDPG(object):
         self.critic_target.train()
 
     def get_network(self, name):
-        if name == 'Actor':
+        if name == "Actor":
             return self.actor
-        elif name == 'Critic':
+        elif name == "Critic":
             return self.critic
         else:
-            raise NameError('name \'{}\' is not defined as a network'.format(name))
+            raise NameError("name '{}' is not defined as a network".format(name))

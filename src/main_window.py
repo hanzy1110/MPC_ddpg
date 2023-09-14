@@ -1,8 +1,12 @@
-import os
+import time
 import pathlib
 import numpy as np
+import pandas as pd
 import gymnasium as gym
+import torch
 from gymnasium.spaces import Box
+
+from collections import namedtuple
 
 # import tkinter
 # import AmeCommunication
@@ -11,173 +15,168 @@ import logging
 from mpc import MPCControllerdown, MPCControllerup, MPCControllerupp
 from helpers import Chart, Chrono
 from ddpg import DDPG
+from ddpg.noise import OrnsteinUhlenbeckActionNoise
+from ddpg.replay_memory import ReplayMemory, Transition
+
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 DATA_FILE = "logs/data.txt"
 DATA_DIR = pathlib.Path(__file__).parent.parent / "data"
 LOG_FILE = pathlib.Path(__file__).parent.parent / "log/events.log"
 
-logging.basicConfig(filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG)
+FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+logging.basicConfig(
+    filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
+)
+DATA_VELOCITY = pd.read_csv(DATA_DIR / "last_output_velocity_target.data")
+DATA_DIS = pd.read_csv(DATA_DIR / "last_output_dis_target.data")
 
+DDPGRes = namedtuple("DDPGRes", ['action', "q_value"])
+ENVRes = namedtuple("ENVRes", ['current_state', "reward"])
+SYSResponse = namedtuple("SYSResponse", ["velocity", "displacement"])
 
-def read_output_files(t) -> np.ndarray:
-    """Read and output enviroment data with the appropriate form"""
-    pass
+MEMORY_SIZE = 10
+BATCH_SIZE = 10
 
 
 class MainControlLoop(object):
-    def __init__(self):
+    def __init__(self, ddpg_params):
         self.is_running = False
         self.rett = None
 
-        # TKInterINIT
-        # self.root = tkinter.Tk()
-        # self.left_frame = tkinter.Frame(self.root)
-        # self.left_frame.pack(side="left")
-        # self.button = tkinter.Button(
-        #     self.left_frame, text="launch/stop", command=self.launch_callback
-        # )
-        # self.button.pack()
-
-        # # Important for AmeCommunication
-        # self.shm_entry = tkinter.Entry(self.left_frame, width=30)
-        # self.shm_entry.insert(tkinter.END, "shm_0")
-        # self.shm_entry.pack()
-
-        # #TKInter stuff:
-        # self.time_val = tkinter.StringVar()
-        # self.time_val.set("time_val")
-        # self.output_val = tkinter.StringVar()
-        # self.output_val.set("output")
-        # self.label = tkinter.Label(self.left_frame, textvariable=self.time_val)
-        # self.label.pack()
-        # self.time_label = tkinter.Label(self.left_frame, textvariable=self.output_val)
-        # self.time_label.pack()
-        # self.frame = tkinter.Frame(self.root)
-        # self.frame.pack()
-        # self.canvas = tkinter.Canvas(self.frame)
-        # self.canvas.pack()
-        # self.chart = Chart(self.canvas, (0.0, 5.0), (1e-6, -1e-6))
-
-        # self.shm = AmeCommunication.AmeSharedmem()
-
         self.chrono = Chrono()
         self.last_refresh_time = 0
+
+        self.epoch_data = {
+            "rewards":[],
+            "epoch_value_loss":[],
+            "epoch_policy_loss":[],
+        }
 
         # MPC Control:
         self.mpc_controllerup = MPCControllerup()
         self.mpc_controllerdown = MPCControllerdown()
         self.mpc_controllerupp = MPCControllerupp()
 
-        # how to de
-        controlup_state_space = Box(-10, 0, dtype=np.float32)
-        controldown_state_space = Box(0, 1, dtype=np.float32)
-        controlupp_state_space = Box(0, 250, dtype=np.float32)
-        self.ddpg_agent_up = DDPG(0.1, 0.1, (10, 10), 3, controlup_state_space)
-        self.ddpg_agent_down = DDPG(0.1, 0.1, (10, 10), 3, controldown_state_space)
-        self.ddpg_agent_upp = DDPG(0.1, 0.1, (10, 10), 3, controlupp_state_space)
-        # Outfile
-        # self.file = open(DATA_FILE, "w")
+        self.action_spaces = {
+            "agent_up": Box(-10, 0, dtype=np.float32),
+            "agent_down": Box(0, 1, dtype=np.float32),
+            "agent_in3": Box(0, 250, dtype=np.float32),
+        }
 
-        # tkinter.mainloop()
+        self.memories = {k: ReplayMemory(MEMORY_SIZE) for k in self.action_spaces.keys()}
+        self.epoch_value_loss = {k: 0 for k in self.action_spaces.keys()}
+        self.epoch_policy_loss = {k: 0 for k in self.action_spaces.keys()}
 
-    # Maybe this method doesn't make sense now...
-    def launch_callback(self):
-        logging.info("Starting process...")
-        if self.is_running:
-            self.is_running = False
-            # self.chart.clean()
-            # self.canvas.after(100, self.shm.close)
-        else:
-            try:
-                self.shm.init(False, str(self.shm_entry.get()), 5, 7)
-                ret = self.shm.exchange([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-                self.is_running = True
-            except RuntimeError:
-                return
-            self.chrono.set_time(ret[1])
-            self.last_output_dis = ret[2]
-            self.last_output_velocity = ret[3]
-            self.last_output_dis_target = ret[5]
-            self.last_output_velocity_target = ret[6]
-            self.add_points()
+        # self.ddpg_agent_up = DDPG(0.1, 0.1, (10, 10), 3, controlup_state_space)
+        self.ddpg_agent_up = self.set_agent(
+            self.action_spaces['agent_up'], "agent_up", **ddpg_params
+        )
+        self.ddpg_agent_down = self.set_agent(
+            self.action_spaces["agent_down"], "agent_down", **ddpg_params
+        )
+        self.ddpg_agent_in3 = self.set_agent(
+            self.action_spaces["agent_in3"], "agent_in3", **ddpg_params
+        )
 
-    def add_points(self):
-        while self.is_running:
-            t = self.chrono.get_time()
-            try:
-                current_state = np.array([self.last_output_velocity, 0, 0, 0, 0, 0])
-                # Modify the state accordingly-self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)[1]*20
-                output_val_in3 = (
-                    self.mpc_controllerupp.controlup(
-                        current_state, self.last_output_dis_target
-                    )[1]
-                    * 23
-                )
-                output_val_up = (
-                    self.mpc_controllerup.controlup(
-                        current_state, self.last_output_dis_target
-                    )[0]
-                    * 1.55
-                )
-                output_val_down = (
-                    self.mpc_controllerdown.controldown(
-                        current_state, self.last_output_dis_target
-                    )[0]
-                    * 0.52
-                )
+    def set_agent(self, action_space, name, **params):
+        chk_dir = params.pop("checkpoint_dir")
 
-                # predicted state ==> a function of the the MPC control
-                output_actions = self.ddpg_agent.take_action(predicted_state)
-                logging.debug(f"Output actions were: {output_actions}")
+        checkpoint_dir = chk_dir / name
 
-                # Output actions should go to the enviroment
-                # but we just read the outcome of a previous simulation
+        agent = DDPG(action_space=action_space, checkpoint_dir=checkpoint_dir, **params)
+        agent.load_checkpoint()
+        agent.set_eval()
+        return agent
 
-                # Just Communication with Amesim?
-                # Here it returns the output from the rectangle
-                # The data files should be read here
-                # rett = self.shm.exchange(
-                #     [0.0, t, output_val_in3, output_val_down, output_val_up]
-                # )
+    def get_noise(self, name):
+        # TODO add standard deviation to noise
+        nb_actions = self.action_spaces[name].shape[-1]
+        ou_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(nb_actions),
+                                                sigma=float(1) * np.ones(nb_actions))
+        return ou_noise
 
-                rett = read_output_files(t)
-                logging.debug(f"System responded with: {rett}")
 
-                self.last_output_dis = rett[2]
-                self.last_output_velocity = rett[3]
-                self.last_output_dis_target = rett[5]
-                self.last_output_velocity_target = rett[6]
+    def compute_actions(self, agent, state, name):
+        action = agent.calc_action(state, action_noise=self.get_noise(name))
+        q_value = agent.critic(state, action)
+        return DDPGRes(action=action,q_value=q_value)
 
-                # new_point = (rett[1], rett[2], rett[3], rett[5], rett[6])
-                # self.file.write(
-                #     f"{new_point[0]} {new_point[1]} {new_point[2]} {new_point[3]} {new_point[4]}\n"
-                # )
+    def update_references(self, current_state):
+        self.last_output_velocity = current_state.velocity
+        self.last_output_dis_target = current_state.displacement
 
-            except RuntimeError as e:
-                print(f"Error during exchange: {e}")
-                return
+    def update_memory(self, response, actions):
+        mask = torch.Tensor([response.done]).to(DEVICE)
+        reward = torch.Tensor([response.reward]).to(DEVICE)
+        next_state = torch.Tensor([response.next_state]).to(DEVICE)
+        state = torch.Tensor([response.state]).to(DEVICE)
 
-            # Render points in chart:
-            # [ Not useful ]
-            # self.chart.add_point(rett[1], rett[2])
-            # t = self.chrono.get_time()
-            # if t - self.last_refresh_time > 0.1:
-            #     print("Warning: exchange rate goes too fast to ensure a smooth display")
-            #     print("Try with a smaller sample time")
-            #     self.last_refresh_time = t
-            #     self.chart.update()
-            #     self.time_val.set("time: " + str(self.chrono.get_time()))
-            #     self.output_val.set("val: " + str(self.last_output_dis))
-            #     self.chart.canvas.after(1, self.add_points)
-            #     break
-            # elif rett[1] - t > 0.001:
-            #     self.last_refresh_time = t
-            #     self.chart.update()
-            #     self.time_val.set("time: " + str(self.chrono.get_time()))
-            #     self.output_val.set("val: " + str(self.last_output_dis))
-            #     self.chart.canvas.after(1 + int((rett[1] - t) * 1000), self.add_points)
-            #     break
+        for agent_name in self.action_spaces.keys():
+            self.memories[agent_name].push(state, actions[agent_name], mask, next_state, reward)
 
-    # def finalize(self):
-    #     self.file.close()
-    #     self.shm.close()
+    def train_step(self, agent, agent_name):
+        transitions = self.memories[agent_name].sample(BATCH_SIZE)
+        # Transpose the batch
+        # (see http://stackoverflow.com/a/19343/3343043 for detailed explanation).
+        batch = Transition(*zip(*transitions))
+
+        # Update actor and critic according to the batch
+        value_loss, policy_loss = agent.update_params(batch)
+        self.epoch_value_loss[agent_name] += value_loss
+        self.epoch_policy_loss[agent_name] += policy_loss
+
+    def control_step(self, t, current_state):
+        # while self.is_running:
+        # t = self.chrono.get_time()
+        # Modify the state accordingly-self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)[1]*20
+        state_val_in3 = (
+            self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)
+            # * 23
+        )
+        state_val_up = (
+            self.mpc_controllerup.controlup(current_state, self.last_output_dis_target)
+            # * 1.55
+        )
+        state_val_down = (
+            self.mpc_controllerdown.controldown(
+                current_state, self.last_output_dis_target
+            )
+            # * 0.52
+        )
+
+        # predicted state ==> a function of the the MPC control
+        output_ddpg_up = self.compute_actions(self.ddpg_agent_up, state_val_up, name="agent_up")
+        output_ddpg_down = self.compute_actions(self.ddpg_agent_down, state_val_down, name="agent_down")
+        output_ddpg_in3 = self.compute_actions(self.ddpg_agent_in3, state_val_in3, name="agent_in3")
+
+        actions = {
+            "agent_up": output_ddpg_up,
+            "agent_down": output_ddpg_down,
+            "agent_in3": output_ddpg_in3
+        }
+
+        logging.debug(f"CONTROL UP : {output_ddpg_up}")
+        logging.debug(f"CONTROL DOWN : {output_ddpg_down}")
+        logging.debug(f"CONTROL IN3 : {output_ddpg_in3}")
+
+        # Output actions should go to the enviroment
+        # but we just read the outcome of a previous simulation
+
+        # Just Communication with Amesim?
+        # Here it returns the output from the rectangle
+        # The data files should be read here
+        # rett = self.shm.exchange(
+        #     [0.0, t, output_val_in3, output_val_down, output_val_up]
+        # )
+
+        return actions
+
+    def save_checkpoint(self, timestep):
+
+        self.ddpg_agent_up.save_checkpoint(timestep, self.memories["agent_up"])
+        self.ddpg_agent_down.save_checkpoint(timestep, self.memories["agent_down"])
+        self.ddpg_agent_in3.save_checkpoint(timestep, self.memories["agent_in3"])
+
+        logging.info('Saved model at endtime {}'.format(time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.localtime())))
+        logging.info('Stopping training at {}'.format(time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.localtime())))

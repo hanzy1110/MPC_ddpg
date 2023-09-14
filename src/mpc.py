@@ -1,8 +1,17 @@
+import pathlib
+import logging
 import numpy as np
 import scipy as sp
 import cvxpy as cp
 import matplotlib.pyplot as plt
+from collections import namedtuple
+import logging
 
+logger = logging.getLogger(__name__)
+FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+LOG_FILE = pathlib.Path(__file__).parent.parent / "log/events.log"
+logging.basicConfig(filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT)
+MPCResult = namedtuple("MPCResult", ["state", "control"])
 
 # State-space model
 class MPCControllerup:
@@ -68,7 +77,9 @@ class MPCControllerup:
         prob = cp.Problem(cp.Minimize(objective), constraints)
         prob.solve()
 
-        return u[:, 0].value
+        # return u[:, 0].value
+        logging.info(f"CONTROL UP RES: {x}, {u}")
+        return MPCResult(control=u[:, 0].value, state=x[:,0].value)
 
 
 class MPCControllerdown:
@@ -134,7 +145,9 @@ class MPCControllerdown:
         prob = cp.Problem(cp.Minimize(objective), constraints)
         prob.solve()
 
-        return u[:, 0].value
+        # return u[:, 0].value
+        logging.info(f"CONTROL UP RES: {x}, {u}")
+        return MPCResult(control=u[:, 0].value, state=x[:,0].value)
 
 
 class MPCControllerupp:
@@ -200,4 +213,6 @@ class MPCControllerupp:
         prob = cp.Problem(cp.Minimize(objective), constraints)
         prob.solve()
 
-        return u[:, 0].value
+        # return u[:, 0].value
+        logging.info(f"CONTROL UPP res: {x}, {u}")
+        return MPCResult(control=u[:, 0].value, state=x[:,0].value)
