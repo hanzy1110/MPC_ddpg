@@ -1,4 +1,4 @@
-% Created 2023-09-13 mié 14:36
+% Created 2023-09-13 mié 15:40
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
@@ -27,10 +27,10 @@
 \tableofcontents
 
 \section{Notes for the project:}
-\label{sec:org1dae770}
+\label{sec:orgf3978e9}
 
 \subsection{MPC Control:}
-\label{sec:org86209cc}
+\label{sec:org24d2314}
 I have a state space model for the mpc control used to control the opening of a valve
 Out variables should control last\textsubscript{output}\textsubscript{velocity}, last\textsubscript{output}\textsubscript{displacemnt}
 How does MPC control work?
@@ -44,7 +44,7 @@ How does MPC control work?
 \end{equation}
 
 \subsubsection{MPC Control}
-\label{sec:orgb508754}
+\label{sec:org3cb569f}
  MPC is based on iterative, finite-horizon optimization of a plant model. At time t t the current plant state is sampled and a cost minimizing control strategy is computed (via a numerical minimization algorithm) for a relatively short time horizon in the future: [ t , t + T ] [t,t+T]
 Model predictive control is a multivariable control algorithm that uses:
 
@@ -56,17 +56,20 @@ Model predictive control is a multivariable control algorithm that uses:
 
 \begin{enumerate}
 \item Equations:
-\label{sec:orgba7906f}
+\label{sec:org322142b}
 
 \(n_x = 6, N = 1\)
 
+\(shape(x) = (6, 1)\)
+\(shape(u) = (3, 1)\)
+
 \begin{itemize}
-\item Variables $x, u$
-\item constraints:
-\begin{itemize}
-\item $x_{k+1} = A_d x_k + B_d u_k$
-\item $u_k >= -10$, $u_k<0$
-\end{itemize}
+    \item Variables $x, u$
+    \item constraints:
+    \begin{itemize}
+        \item $x_{k+1} = A_d x_k + B_d u_k$
+        \item $u_k >= -10$, $u_k<0$
+    \end{itemize}
 \end{itemize}
 
 Controlup outputs the predicted control signal \(u[:,0]\)
@@ -75,11 +78,27 @@ Controlup outputs the predicted control signal \(u[:,0]\)
 \end{enumerate}
 
 \subsection{DDPG:}
-\label{sec:org0cd9b1d}
+\label{sec:orgf2611c4}
 Reinforcement learning technique that strives to combine perception capabilities of Deep learning with Decision capabilities of conventional reinforcement learning.
 
 \begin{itemize}
-\item The perception step that gives information about the enviroment.
-\item The decision step that self actualices to get an appropiate response.
+    \item The perception step that gives information about the enviroment.
+    \item The decision step that self actualices to get an appropiate response.
 \end{itemize}
+
+\begin{enumerate}
+\item How to define agents
+\label{sec:org99db3f9}
+
+\begin{itemize}
+    \item We need to deal with distinct and continous action spaces
+    \item State spaces:
+
+    \begin{itemize}
+        \item controllerup: $[-10, 0]$
+        \item controllerdown: $[0, 1]$
+        \item controllerup: $[0, 250]$
+    \end{itemize}
+\end{itemize}
+\end{enumerate}
 \end{document}

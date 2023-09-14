@@ -50,3 +50,16 @@ Reinforcement learning technique that strives to combine perception capabilities
     \item The perception step that gives information about the enviroment.
     \item The decision step that self actualices to get an appropiate response.
 \end{itemize}
+
+**** How to define agents
+
+\begin{itemize}
+    \item We need to deal with distinct and continous action spaces
+    \item State spaces:
+
+    \begin{itemize}
+        \item controllerup: $[-10, 0]$
+        \item controllerdown: $[0, 1]$
+        \item controllerup: $[0, 250]$
+    \end{itemize}
+\end{itemize}
