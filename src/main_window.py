@@ -126,6 +126,7 @@ class MainControlLoop(object):
         self.epoch_value_loss[agent_name] += value_loss
         self.epoch_policy_loss[agent_name] += policy_loss
 
+
     def control_step(self, t, current_state):
         # while self.is_running:
         # t = self.chrono.get_time()

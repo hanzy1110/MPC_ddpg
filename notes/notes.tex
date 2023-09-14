@@ -1,4 +1,4 @@
-% Created 2023-09-13 mié 15:40
+% Created 2023-09-14 jue 14:16
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
@@ -27,10 +27,10 @@
 \tableofcontents
 
 \section{Notes for the project:}
-\label{sec:orgf3978e9}
+\label{sec:orgede8d68}
 
 \subsection{MPC Control:}
-\label{sec:org24d2314}
+\label{sec:orgbd498e3}
 I have a state space model for the mpc control used to control the opening of a valve
 Out variables should control last\textsubscript{output}\textsubscript{velocity}, last\textsubscript{output}\textsubscript{displacemnt}
 How does MPC control work?
@@ -44,7 +44,7 @@ How does MPC control work?
 \end{equation}
 
 \subsubsection{MPC Control}
-\label{sec:org3cb569f}
+\label{sec:org4f90111}
  MPC is based on iterative, finite-horizon optimization of a plant model. At time t t the current plant state is sampled and a cost minimizing control strategy is computed (via a numerical minimization algorithm) for a relatively short time horizon in the future: [ t , t + T ] [t,t+T]
 Model predictive control is a multivariable control algorithm that uses:
 
@@ -56,7 +56,7 @@ Model predictive control is a multivariable control algorithm that uses:
 
 \begin{enumerate}
 \item Equations:
-\label{sec:org322142b}
+\label{sec:org3a49717}
 
 \(n_x = 6, N = 1\)
 
@@ -78,7 +78,7 @@ Controlup outputs the predicted control signal \(u[:,0]\)
 \end{enumerate}
 
 \subsection{DDPG:}
-\label{sec:orgf2611c4}
+\label{sec:org3aa477f}
 Reinforcement learning technique that strives to combine perception capabilities of Deep learning with Decision capabilities of conventional reinforcement learning.
 
 \begin{itemize}
@@ -88,7 +88,7 @@ Reinforcement learning technique that strives to combine perception capabilities
 
 \begin{enumerate}
 \item How to define agents
-\label{sec:org99db3f9}
+\label{sec:org089b7c5}
 
 \begin{itemize}
     \item We need to deal with distinct and continous action spaces
@@ -101,4 +101,14 @@ Reinforcement learning technique that strives to combine perception capabilities
     \end{itemize}
 \end{itemize}
 \end{enumerate}
+
+\subsection{Data flow:}
+\label{sec:orgd712193}
+
+\begin{itemize}
+    \item MPC: Takes in current state $x_k$ and a target reference
+    \item MPC: outputs predicted state $x_{k+1}$, predicted control $u_{k+1}$
+    \item DDPG Takes in predicted state and outputs a control action $u_{k+1}$
+    \item Why should I Update target reference?
+\end{itemize}
 \end{document}
