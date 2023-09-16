@@ -1,4 +1,4 @@
-import argparse
+# import argparse
 import logging
 import os
 import pathlib
@@ -22,7 +22,7 @@ CHECKPOINT_DIR = pathlib.Path(__file__).parent / "checkpoints"
 
 MAX_EPISODES = 10
 MAX_TIMESTEPS = 100
-MAX_ITERS=100
+MAX_ITERS = 100
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 logging.basicConfig(
     filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
@@ -56,6 +56,7 @@ if __name__ == "__main__":
     np.random.seed(RANDOM_SEED)
 
     ddpg_params = {
+        "num_inputs": 6,
         "gamma": gamma,
         "tau": tau,
         "hidden_size": hidden_size,
@@ -78,16 +79,15 @@ if __name__ == "__main__":
         state = torch.Tensor([env.reset()]).to(device)
         # while True:
 
-            # AGENT (MainControlLoop) returns an ACTION
-            # env returns enviroment response!
+        # AGENT (MainControlLoop) returns an ACTION
+        # env returns enviroment response!
 
         it = 0
         while True:
             actions = controller.control_step(timestep, state)
 
-            #TODO convert actions to torch?
+            # TODO convert actions to torch?
             # response = env.step(actions.cpu().numpy()[0], timestep)
-            # TODO add state to response
             response = env.step(actions, timestep)
             timestep += 1
             epoch_return += response.reward
@@ -103,8 +103,8 @@ if __name__ == "__main__":
                 controller.train_step(controller.ddpg_agent_down, "agent_down")
                 controller.train_step(controller.ddpg_agent_in3, "agent_in3")
 
-            it+=1
-            if it>=MAX_ITERS:
+            it += 1
+            if it >= MAX_ITERS:
                 break
             # if done:
             #     break

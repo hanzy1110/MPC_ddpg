@@ -12,11 +12,11 @@ from collections import namedtuple
 # import AmeCommunication
 
 import logging
-from mpc import MPCControllerdown, MPCControllerup, MPCControllerupp
-from helpers import Chart, Chrono
-from ddpg import DDPG
-from ddpg.noise import OrnsteinUhlenbeckActionNoise
-from ddpg.replay_memory import ReplayMemory, Transition
+from .mpc import MPCControllerdown, MPCControllerup, MPCControllerupp
+from .helpers import Chart, Chrono
+from .ddpg import DDPG
+from .drl_utils.noise import OrnsteinUhlenbeckActionNoise
+from .drl_utils.replay_memory import ReplayMemory, Transition
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -28,11 +28,11 @@ FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 logging.basicConfig(
     filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
 )
-DATA_VELOCITY = pd.read_csv(DATA_DIR / "last_output_velocity_target.data")
-DATA_DIS = pd.read_csv(DATA_DIR / "last_output_dis_target.data")
+# DATA_VELOCITY = pd.read_csv(DATA_DIR / "last_output_velocity_target.data")
+# DATA_DIS = pd.read_csv(DATA_DIR / "last_output_dis_target.data")
 
-DDPGRes = namedtuple("DDPGRes", ['action', "q_value"])
-ENVRes = namedtuple("ENVRes", ['current_state', "reward"])
+DDPGRes = namedtuple("DDPGRes", ["action", "q_value"])
+ENVRes = namedtuple("ENVRes", ["current_state", "reward"])
 SYSResponse = namedtuple("SYSResponse", ["velocity", "displacement"])
 
 MEMORY_SIZE = 10
@@ -48,9 +48,9 @@ class MainControlLoop(object):
         self.last_refresh_time = 0
 
         self.epoch_data = {
-            "rewards":[],
-            "epoch_value_loss":[],
-            "epoch_policy_loss":[],
+            "rewards": [],
+            "epoch_value_loss": [],
+            "epoch_policy_loss": [],
         }
 
         # MPC Control:
@@ -64,13 +64,15 @@ class MainControlLoop(object):
             "agent_in3": Box(0, 250, dtype=np.float32),
         }
 
-        self.memories = {k: ReplayMemory(MEMORY_SIZE) for k in self.action_spaces.keys()}
+        self.memories = {
+            k: ReplayMemory(MEMORY_SIZE) for k in self.action_spaces.keys()
+        }
         self.epoch_value_loss = {k: 0 for k in self.action_spaces.keys()}
         self.epoch_policy_loss = {k: 0 for k in self.action_spaces.keys()}
 
         # self.ddpg_agent_up = DDPG(0.1, 0.1, (10, 10), 3, controlup_state_space)
         self.ddpg_agent_up = self.set_agent(
-            self.action_spaces['agent_up'], "agent_up", **ddpg_params
+            self.action_spaces["agent_up"], "agent_up", **ddpg_params
         )
         self.ddpg_agent_down = self.set_agent(
             self.action_spaces["agent_down"], "agent_down", **ddpg_params
@@ -79,28 +81,37 @@ class MainControlLoop(object):
             self.action_spaces["agent_in3"], "agent_in3", **ddpg_params
         )
 
+    def set_target(self, target_disp):
+        self.last_output_dis_target = target_disp
+        # self.last_output_vel_target = target_disp
+
     def set_agent(self, action_space, name, **params):
+        logging.info(f"Setting Agent: {name}")
         chk_dir = params.pop("checkpoint_dir")
 
         checkpoint_dir = chk_dir / name
 
-        agent = DDPG(action_space=action_space, checkpoint_dir=checkpoint_dir, **params)
-        agent.load_checkpoint()
+        agent = DDPG(name=name, action_space=action_space, checkpoint_dir=checkpoint_dir, **params)
+
+        try:
+            agent.load_checkpoint()
+        except ValueError as e:
+            logging.warning(f"No Checkpoint found! {e}")
         agent.set_eval()
         return agent
 
     def get_noise(self, name):
         # TODO add standard deviation to noise
         nb_actions = self.action_spaces[name].shape[-1]
-        ou_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(nb_actions),
-                                                sigma=float(1) * np.ones(nb_actions))
+        ou_noise = OrnsteinUhlenbeckActionNoise(
+            mu=np.zeros(nb_actions), sigma=float(1) * np.ones(nb_actions)
+        )
         return ou_noise
-
 
     def compute_actions(self, agent, state, name):
         action = agent.calc_action(state, action_noise=self.get_noise(name))
         q_value = agent.critic(state, action)
-        return DDPGRes(action=action,q_value=q_value)
+        return DDPGRes(action=action, q_value=q_value)
 
     def update_references(self, current_state):
         self.last_output_velocity = current_state.velocity
@@ -113,7 +124,9 @@ class MainControlLoop(object):
         state = torch.Tensor([response.state]).to(DEVICE)
 
         for agent_name in self.action_spaces.keys():
-            self.memories[agent_name].push(state, actions[agent_name], mask, next_state, reward)
+            self.memories[agent_name].push(
+                state, actions[agent_name], mask, next_state, reward
+            )
 
     def train_step(self, agent, agent_name):
         transitions = self.memories[agent_name].sample(BATCH_SIZE)
@@ -125,7 +138,6 @@ class MainControlLoop(object):
         value_loss, policy_loss = agent.update_params(batch)
         self.epoch_value_loss[agent_name] += value_loss
         self.epoch_policy_loss[agent_name] += policy_loss
-
 
     def control_step(self, t, current_state):
         # while self.is_running:
@@ -146,15 +158,25 @@ class MainControlLoop(object):
             # * 0.52
         )
 
+        state_val_in3 = torch.Tensor([state_val_in3]).to(DEVICE)
+        state_val_up = torch.Tensor([state_val_up]).to(DEVICE)
+        state_val_down = torch.Tensor([state_val_down]).to(DEVICE)
+
         # predicted state ==> a function of the the MPC control
-        output_ddpg_up = self.compute_actions(self.ddpg_agent_up, state_val_up, name="agent_up")
-        output_ddpg_down = self.compute_actions(self.ddpg_agent_down, state_val_down, name="agent_down")
-        output_ddpg_in3 = self.compute_actions(self.ddpg_agent_in3, state_val_in3, name="agent_in3")
+        output_ddpg_up = self.compute_actions(
+            self.ddpg_agent_up, state_val_up, name="agent_up"
+        )
+        output_ddpg_down = self.compute_actions(
+            self.ddpg_agent_down, state_val_down, name="agent_down"
+        )
+        output_ddpg_in3 = self.compute_actions(
+            self.ddpg_agent_in3, state_val_in3, name="agent_in3"
+        )
 
         actions = {
             "agent_up": output_ddpg_up,
             "agent_down": output_ddpg_down,
-            "agent_in3": output_ddpg_in3
+            "agent_in3": output_ddpg_in3,
         }
 
         logging.debug(f"CONTROL UP : {output_ddpg_up}")
@@ -174,10 +196,17 @@ class MainControlLoop(object):
         return actions
 
     def save_checkpoint(self, timestep):
-
         self.ddpg_agent_up.save_checkpoint(timestep, self.memories["agent_up"])
         self.ddpg_agent_down.save_checkpoint(timestep, self.memories["agent_down"])
         self.ddpg_agent_in3.save_checkpoint(timestep, self.memories["agent_in3"])
 
-        logging.info('Saved model at endtime {}'.format(time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.localtime())))
-        logging.info('Stopping training at {}'.format(time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.localtime())))
+        logging.info(
+            "Saved model at endtime {}".format(
+                time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.localtime())
+            )
+        )
+        logging.info(
+            "Stopping training at {}".format(
+                time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.localtime())
+            )
+        )

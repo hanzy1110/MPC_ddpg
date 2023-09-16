@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 
-from utils.nets import Actor, Critic
+from src.drl_utils.nets import Actor, Critic
 
 # logging = logging.getLogger('ddpg')
 # logging.setLevel(logging.INFO)

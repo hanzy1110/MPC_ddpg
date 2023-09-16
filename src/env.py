@@ -11,8 +11,12 @@ LOG_FILE = pathlib.Path(__file__).parent.parent / "log/events.log"
 RANDOM_SEED = 123456
 CHECKPOINT_DIR = pathlib.Path(__file__).parent / "checkpoints"
 
-DATA_VELOCITY = pd.read_csv(DATA_DIR / "last_output_velocity_target.data")
-DATA_DIS = pd.read_csv(DATA_DIR / "last_output_dis_target.data")
+DATA_VELOCITY = pd.read_csv(DATA_DIR / "last_output_velocity_target.csv")
+DATA_DIS = pd.read_csv(DATA_DIR / "last_output_dis_target.csv")
+
+OUT_1 = pd.read_csv(DATA_DIR / "output1.csv")
+OUT_2 = pd.read_csv(DATA_DIR / "output2.csv")
+OUT_3 = pd.read_csv(DATA_DIR / "output3.csv")
 
 MAX_EPISODES = 10
 
@@ -21,33 +25,41 @@ logging.basicConfig(
     filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
 )
 
-SYSResponse = namedtuple("SYSResponse", ["state", "next_state", "reward", "done"])
+SYSResponse = namedtuple("SYSResponse", ["state", "next_state","target", "reward", "done"])
 
-def read_output_files(t):
+def read_state_files(t):
     """Read and output enviroment data with the appropriate form"""
     velocity = DATA_VELOCITY["velocity"].values
     dis = DATA_DIS["signal"].values
-    return velocity[t], dis[t]
+    return np.array([velocity[t], dis[t]])
+
+def read_output_files(t):
+    out_1 = OUT_1["routput"].values[t]
+    # out_2 = OUT_2["routput"].values[t]
+    # out_3 = OUT_3["routput"].values[t]
+    # return np.array([out_1, out_2, out_3])
+    return np.array([out_1, 0,0,0,0,0])
 
 class AmeSimEnv:
     def __init__(self) -> None:
         pass
 
     def reset(self):
-        velocity, disp = read_output_files(0)
-        return np.array([velocity, disp])
+        return read_output_files(0)
 
     def set_target(self, target):
         self.target = target
 
     def step(self, action, time):
         logging.info(f"Action: {action}")
-        velocity, disp = read_output_files(time)
-        state = np.array([velocity, disp])
-        next_velocity, next_disp = read_output_files(time + 1)
-        next_state = np.array([next_velocity, next_disp])
+        target = read_state_files(time)
+        next_target = read_state_files(time + 1)
+
+        state = read_output_files(time)
+        next_state = read_output_files(time + 1)
+
 
         done = False
-        reward = np.linalg.norm(np.array([next_velocity, next_disp])-self.target)
+        reward = np.linalg.norm(target-state)
 
-        return SYSResponse(state, next_state, reward, done)
+        return SYSResponse(state, next_state, next_target,reward, done)
