@@ -186,7 +186,7 @@ class DDPG(object):
             replay_buffer:  Current replay buffer
         """
         checkpoint_name = (
-            self.checkpoint_dir + f"/{self.name}_ep_{last_timestep}.pth.tar"
+            self.checkpoint_dir / f"{self.name}_ep_{last_timestep}.pth.tar"
         )
         logging.info("Saving checkpoint...")
         checkpoint = {

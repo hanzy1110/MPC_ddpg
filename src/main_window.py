@@ -114,8 +114,8 @@ class MainControlLoop(object):
         return DDPGRes(action=action, q_value=q_value)
 
     def update_references(self, current_state):
-        self.last_output_velocity = current_state.velocity
-        self.last_output_dis_target = current_state.displacement
+        self.last_output_velocity = current_state[0]
+        self.last_output_dis_target = current_state[1]
 
     def update_memory(self, response, actions):
         mask = torch.Tensor([response.done]).to(DEVICE)
@@ -143,6 +143,7 @@ class MainControlLoop(object):
         # while self.is_running:
         # t = self.chrono.get_time()
         # Modify the state accordingly-self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)[1]*20
+        current_state = current_state.numpy().reshape((6,))
         state_val_in3 = (
             self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)
             # * 23
@@ -158,19 +159,19 @@ class MainControlLoop(object):
             # * 0.52
         )
 
-        state_val_in3 = torch.Tensor([state_val_in3]).to(DEVICE)
-        state_val_up = torch.Tensor([state_val_up]).to(DEVICE)
-        state_val_down = torch.Tensor([state_val_down]).to(DEVICE)
+        pred_state_val_in3 = torch.Tensor([state_val_in3.state]).to(DEVICE)
+        pred_state_val_up = torch.Tensor([state_val_up.state]).to(DEVICE)
+        pred_state_val_down = torch.Tensor([state_val_down.state]).to(DEVICE)
 
         # predicted state ==> a function of the the MPC control
         output_ddpg_up = self.compute_actions(
-            self.ddpg_agent_up, state_val_up, name="agent_up"
+            self.ddpg_agent_up, pred_state_val_up, name="agent_up"
         )
         output_ddpg_down = self.compute_actions(
-            self.ddpg_agent_down, state_val_down, name="agent_down"
+            self.ddpg_agent_down, pred_state_val_down, name="agent_down"
         )
         output_ddpg_in3 = self.compute_actions(
-            self.ddpg_agent_in3, state_val_in3, name="agent_in3"
+            self.ddpg_agent_in3, pred_state_val_in3, name="agent_in3"
         )
 
         actions = {

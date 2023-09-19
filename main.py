@@ -11,7 +11,7 @@ import torch
 import time
 
 from src.main_window import MainControlLoop, BATCH_SIZE
-from src.env import AmeSimEnv
+from src.env import AmeSimEnv, read_state_files
 
 # Create logger
 DATA_FILE = "logs/data.txt"
@@ -79,11 +79,19 @@ if __name__ == "__main__":
         state = torch.Tensor([env.reset()]).to(device)
         # while True:
 
+        controller.last_output_dis_target = read_state_files(timestep)[1]
+
         # AGENT (MainControlLoop) returns an ACTION
         # env returns enviroment response!
 
         it = 0
         while True:
+            logging.info(
+                f"Timestep {timestep} iter {it}"
+            )
+            if not isinstance(state, torch.Tensor):
+                state = torch.Tensor([state]).to(device)
+
             actions = controller.control_step(timestep, state)
 
             # TODO convert actions to torch?
@@ -110,8 +118,8 @@ if __name__ == "__main__":
             #     break
 
         controller.epoch_data["rewards"].append(epoch_return)
-        controller.epoch_data["value_losses"].append(controller.epoch_value_loss)
-        controller.epoch_data["policy_losses"].append(controller.epoch_policy_loss)
+        controller.epoch_data["epoch_value_loss"].append(controller.epoch_value_loss)
+        controller.epoch_data["epoch_policy_loss"].append(controller.epoch_policy_loss)
 
         # # Test every 10th episode (== 1e4) steps for a number of test_epochs epochs
         # if timestep >= 10000 * t:

@@ -60,6 +60,6 @@ class AmeSimEnv:
 
 
         done = False
-        reward = np.linalg.norm(target-state)
+        reward = np.linalg.norm(target[0]-state[0])
 
         return SYSResponse(state, next_state, next_target,reward, done)
