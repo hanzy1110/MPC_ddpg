@@ -24,8 +24,8 @@ RANDOM_SEED = 123456
 CHECKPOINT_DIR = pathlib.Path(PATH).parent / "checkpoints"
 
 MAX_EPISODES = 10
-MAX_TIMESTEPS = 100
-MAX_ITERS = 100
+MAX_TIMESTEPS = 1000
+MAX_ITERS = 200
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
 
@@ -72,6 +72,7 @@ if __name__ == "__main__":
     # This is on a per-agent basis
     timestep = 1
     # rewards, policy_losses, value_losses, mean_test_rewards = [], [], [], []
+    states = []
     epoch = 0
     t = 0
     time_last_checkpoint = time.time()
@@ -102,6 +103,7 @@ if __name__ == "__main__":
 
             controller.update_memory(response, actions)
 
+            states.append(response.next_state)
             controller.update_references(response.next_state)
             state = response.next_state
             env.set_target(state)
@@ -134,13 +136,18 @@ if __name__ == "__main__":
 
         return out
 
-    fig, ax = plt.subplots(3, 1)
-    ax[0].plot(controller.epoch_data["rewards"])
+    fig, ax = plt.subplots(2, 2)
+    ax[0, 0].plot(controller.epoch_data["rewards"])
 
     for k, v in flatten_dict(controller.epoch_data["epoch_value_loss"]):
-        ax[1].plot(v, label=k)
+        ax[0, 1].plot(v, label=k)
     for k, v in flatten_dict(controller.epoch_data["epoch_policy_loss"]):
-        ax[2].plot(v, label=k)
+        ax[1, 0].plot(v, label=k)
+
+    ax[1, 1].plot([s[1] for s in states], label="Displacement")
+
+    for a in ax:
+        a.legend()
 
     plt.savefig("misc/training_plot.jpg", dpi=600)
     controller.save_checkpoint(timestep)
