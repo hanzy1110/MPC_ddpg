@@ -79,7 +79,7 @@ class MPCControllerup:
         prob.solve()
 
         # return u[:, 0].value
-        logging.info(f"CONTROL UP RES: {x}, {u}")
+        logging.info(f"CONTROL UP RES: {x[:,0].value}, {u[:,0].value}")
         return MPCResult(control=u[:, 0].value, state=x[:, 0].value)
 
 
@@ -147,7 +147,7 @@ class MPCControllerdown:
         prob.solve()
 
         # return u[:, 0].value
-        logging.info(f"CONTROL UP RES: {x}, {u}")
+        logging.info(f"CONTROL DOWN RES: {x[:,0].value}, {u[:,0].value}")
         return MPCResult(control=u[:, 0].value, state=x[:, 0].value)
 
 
@@ -215,5 +215,5 @@ class MPCControllerupp:
         prob.solve()
 
         # return u[:, 0].value
-        logging.info(f"CONTROL UPP res: {x}, {u}")
+        logging.info(f"CONTROL UPP RES: {x[:,0].value}, {u[:,0].value}")
         return MPCResult(control=u[:, 0].value, state=x[:, 0].value)

@@ -147,6 +147,7 @@ class MainControlLoop(object):
         # t = self.chrono.get_time()
         # Modify the state accordingly-self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)[1]*20
         current_state = current_state.numpy().reshape((6,))
+        logging.info(f"CURRENT STATE -> {current_state}")
         state_val_in3 = (
             self.mpc_controllerupp.controlup(current_state, self.last_output_dis_target)
             # * 23

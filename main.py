@@ -9,6 +9,7 @@ import torch
 
 # from wrappers import NormalizedActions
 import time
+import matplotlib.pyplot as plt
 
 from src.main_window import MainControlLoop, BATCH_SIZE
 from src.env import AmeSimEnv, read_state_files
@@ -27,6 +28,7 @@ MAX_TIMESTEPS = 100
 MAX_ITERS = 100
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
+
 
 # Libdom raises an error if this is not set to true on Mac OSX
 # see https://github.com/openai/spinningup/issues/16 for more information
@@ -86,6 +88,7 @@ if __name__ == "__main__":
 
         it = 0
         while True:
+            logging.info("--x--" * 20)
             logging.info(f"Timestep {timestep} iter {it}")
             if not isinstance(state, torch.Tensor):
                 state = torch.Tensor([state]).to(device)
@@ -95,7 +98,6 @@ if __name__ == "__main__":
             # TODO convert actions to torch?
             # response = env.step(actions.cpu().numpy()[0], timestep)
             response = env.step(actions, timestep)
-            timestep += 1
             epoch_return += response.reward
 
             controller.update_memory(response, actions)
@@ -105,6 +107,7 @@ if __name__ == "__main__":
             env.set_target(state)
 
             if len(controller.memories["agent_up"]) > BATCH_SIZE:
+                logging.info(f"TRAINING STEP => {controller.memories}")
                 controller.train_step(controller.ddpg_agent_up, "agent_up")
                 controller.train_step(controller.ddpg_agent_down, "agent_down")
                 controller.train_step(controller.ddpg_agent_in3, "agent_in3")
@@ -115,57 +118,30 @@ if __name__ == "__main__":
             # if done:
             #     break
 
+        timestep += 1
         controller.epoch_data["rewards"].append(epoch_return)
+
         controller.epoch_data["epoch_value_loss"].append(controller.epoch_value_loss)
         controller.epoch_data["epoch_policy_loss"].append(controller.epoch_policy_loss)
 
-        # # Test every 10th episode (== 1e4) steps for a number of test_epochs epochs
-        # if timestep >= 10000 * t:
-        #     t += 1
-        #     test_rewards = []
-        #     for _ in range(args.n_test_cycles):
-        #         state = torch.Tensor([env.reset()]).to(device)
-        #         test_reward = 0
-        #         while True:
-        #             if args.render_eval:
-        #                 env.render()
-
-        #             action = agent.calc_action(state)  # Selection without noise
-
-        #             next_state, reward, done, _ = env.step(action.cpu().numpy()[0])
-        #             test_reward += reward
-
-        #             next_state = torch.Tensor([next_state]).to(device)
-
-        #             state = next_state
-        #             if done:
-        #                 break
-        #         test_rewards.append(test_reward)
-
-        #     mean_test_rewards.append(np.mean(test_rewards))
-
-        #     for name, param in agent.actor.named_parameters():
-        #         writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
-        #     for name, param in agent.critic.named_parameters():
-        #         writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
-
-        #     writer.add_scalar('test/mean_test_return', mean_test_rewards[-1], epoch)
-        #     logger.info("Epoch: {}, current timestep: {}, last reward: {}, "
-        #                 "mean reward: {}, mean test reward {}".format(epoch,
-        #                                                               timestep,
-        #                                                               rewards[-1],
-        #                                                               np.mean(rewards[-10:]),
-        #                                                               np.mean(test_rewards)))
-
-        #     # Save if the mean of the last three averaged rewards while testing
-        #     # is greater than the specified reward threshold
-        #     # TODO: Option if no reward threshold is given
-        #     if np.mean(mean_test_rewards[-3:]) >= reward_threshold:
-        #         agent.save_checkpoint(timestep, memory)
-        #         time_last_checkpoint = time.time()
-        #         logger.info('Saved model at {}'.format(time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.localtime())))
-
         epoch += 1
 
+    def flatten_dict(LD):
+        out = {}
+        for vals in LD:
+            for k, v in vals.items():
+                out[k].append(v)
+
+        return out
+
+    fig, ax = plt.subplots(3, 1)
+    ax[0].plot(controller.epoch_data["rewards"])
+
+    for k, v in flatten_dict(controller.epoch_data["epoch_value_loss"]):
+        ax[1].plot(v, label=k)
+    for k, v in flatten_dict(controller.epoch_data["epoch_policy_loss"]):
+        ax[2].plot(v, label=k)
+
+    plt.savefig("misc/training_plot.jpg", dpi=600)
     controller.save_checkpoint(timestep)
     # env.close()
