@@ -14,9 +14,7 @@ from src.drl_utils.nets import Actor, Critic
 # logging.addHandler(logging.StreamHandler())
 LOG_FILE = pathlib.Path(__file__).parent.parent / "log/events.log"
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
-logging.basicConfig(
-    filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
-)
+logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

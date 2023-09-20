@@ -25,9 +25,7 @@ DATA_DIR = pathlib.Path(__file__).parent.parent / "data"
 LOG_FILE = pathlib.Path(__file__).parent.parent / "log/events.log"
 
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
-logging.basicConfig(
-    filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
-)
+logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
 # DATA_VELOCITY = pd.read_csv(DATA_DIR / "last_output_velocity_target.data")
 # DATA_DIS = pd.read_csv(DATA_DIR / "last_output_dis_target.data")
 
@@ -91,7 +89,12 @@ class MainControlLoop(object):
 
         checkpoint_dir = chk_dir / name
 
-        agent = DDPG(name=name, action_space=action_space, checkpoint_dir=checkpoint_dir, **params)
+        agent = DDPG(
+            name=name,
+            action_space=action_space,
+            checkpoint_dir=checkpoint_dir,
+            **params,
+        )
 
         try:
             agent.load_checkpoint()

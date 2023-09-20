@@ -14,19 +14,19 @@ from src.main_window import MainControlLoop, BATCH_SIZE
 from src.env import AmeSimEnv, read_state_files
 
 # Create logger
+
+PATH = os.getcwd()
 DATA_FILE = "logs/data.txt"
-DATA_DIR = pathlib.Path(__file__).parent / "data"
-LOG_FILE = pathlib.Path(__file__).parent / "log/events.log"
+DATA_DIR = pathlib.Path(PATH).parent / "data"
+LOG_FILE = pathlib.Path(PATH).parent / "log/events.log"
 RANDOM_SEED = 123456
-CHECKPOINT_DIR = pathlib.Path(__file__).parent / "checkpoints"
+CHECKPOINT_DIR = pathlib.Path(PATH).parent / "checkpoints"
 
 MAX_EPISODES = 10
 MAX_TIMESTEPS = 100
 MAX_ITERS = 100
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
-logging.basicConfig(
-    filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
-)
+logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
 
 # Libdom raises an error if this is not set to true on Mac OSX
 # see https://github.com/openai/spinningup/issues/16 for more information
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # Initialize OU-Noise
     # This is on a per-agent basis
     timestep = 1
-    rewards, policy_losses, value_losses, mean_test_rewards = [], [], [], []
+    # rewards, policy_losses, value_losses, mean_test_rewards = [], [], [], []
     epoch = 0
     t = 0
     time_last_checkpoint = time.time()
@@ -86,9 +86,7 @@ if __name__ == "__main__":
 
         it = 0
         while True:
-            logging.info(
-                f"Timestep {timestep} iter {it}"
-            )
+            logging.info(f"Timestep {timestep} iter {it}")
             if not isinstance(state, torch.Tensor):
                 state = torch.Tensor([state]).to(device)
 

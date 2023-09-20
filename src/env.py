@@ -21,11 +21,12 @@ OUT_3 = pd.read_csv(DATA_DIR / "output3.csv")
 MAX_EPISODES = 10
 
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
-logging.basicConfig(
-    filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT
+logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
+
+SYSResponse = namedtuple(
+    "SYSResponse", ["state", "next_state", "target", "reward", "done"]
 )
 
-SYSResponse = namedtuple("SYSResponse", ["state", "next_state","target", "reward", "done"])
 
 def read_state_files(t):
     """Read and output enviroment data with the appropriate form"""
@@ -33,12 +34,14 @@ def read_state_files(t):
     dis = DATA_DIS["signal"].values
     return np.array([velocity[t], dis[t]])
 
+
 def read_output_files(t):
     out_1 = OUT_1["routput"].values[t]
     # out_2 = OUT_2["routput"].values[t]
     # out_3 = OUT_3["routput"].values[t]
     # return np.array([out_1, out_2, out_3])
-    return np.array([out_1, 0,0,0,0,0])
+    return np.array([out_1, 0, 0, 0, 0, 0])
+
 
 class AmeSimEnv:
     def __init__(self) -> None:
@@ -58,8 +61,7 @@ class AmeSimEnv:
         state = read_output_files(time)
         next_state = read_output_files(time + 1)
 
-
         done = False
-        reward = np.linalg.norm(target[0]-state[0])
+        reward = np.linalg.norm(target[0] - state[0])
 
-        return SYSResponse(state, next_state, next_target,reward, done)
+        return SYSResponse(state, next_state, next_target, reward, done)

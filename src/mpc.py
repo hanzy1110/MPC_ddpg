@@ -10,8 +10,9 @@ import logging
 logger = logging.getLogger(__name__)
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 LOG_FILE = pathlib.Path(__file__).parent.parent / "log/events.log"
-logging.basicConfig(filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG, format=FORMAT)
+logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
 MPCResult = namedtuple("MPCResult", ["state", "control"])
+
 
 # State-space model
 class MPCControllerup:
@@ -79,7 +80,7 @@ class MPCControllerup:
 
         # return u[:, 0].value
         logging.info(f"CONTROL UP RES: {x}, {u}")
-        return MPCResult(control=u[:, 0].value, state=x[:,0].value)
+        return MPCResult(control=u[:, 0].value, state=x[:, 0].value)
 
 
 class MPCControllerdown:
@@ -147,7 +148,7 @@ class MPCControllerdown:
 
         # return u[:, 0].value
         logging.info(f"CONTROL UP RES: {x}, {u}")
-        return MPCResult(control=u[:, 0].value, state=x[:,0].value)
+        return MPCResult(control=u[:, 0].value, state=x[:, 0].value)
 
 
 class MPCControllerupp:
@@ -215,4 +216,4 @@ class MPCControllerupp:
 
         # return u[:, 0].value
         logging.info(f"CONTROL UPP res: {x}, {u}")
-        return MPCResult(control=u[:, 0].value, state=x[:,0].value)
+        return MPCResult(control=u[:, 0].value, state=x[:, 0].value)

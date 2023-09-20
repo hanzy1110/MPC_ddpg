@@ -9,11 +9,11 @@ version = "1.0.0"
 dependencies = [
 "cvxpy==1.3.2",
 "gym==0.26.2",
+"gymnasium==0.29.1",
 "matplotlib==3.7.2",
 "numpy==1.25.0",
-"roboschool==1.0.34",
 "scipy==1.11.2",
 "torch==2.0.1",
 "utils==1.0.1",
-"wrappers==0.1.9",
+"pandas==2.1.0",
 ]
