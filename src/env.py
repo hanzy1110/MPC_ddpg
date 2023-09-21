@@ -4,6 +4,8 @@ import pathlib
 import pandas as pd
 import numpy as np
 from collections import namedtuple
+from src.helpers import Chrono
+import AmeCommunication
 
 DATA_FILE = "logs/data.txt"
 DATA_DIR = pathlib.Path(__file__).parent.parent / "data"
@@ -23,9 +25,7 @@ MAX_EPISODES = 10
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
 
-SYSResponse = namedtuple(
-    "SYSResponse", ["state", "next_state", "target", "reward", "done"]
-)
+SYSResponse = namedtuple("SYSResponse", ["state", "target", "reward", "done"])
 
 
 def read_state_files(t):
@@ -45,23 +45,34 @@ def read_output_files(t):
 
 class AmeSimEnv:
     def __init__(self) -> None:
-        pass
+        self.shm = AmeCommunication.AmeSharedmem()
+        self.chrono = Chrono()
 
     def reset(self):
-        return read_output_files(0)
+        ret = self.shm.exchange([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        return np.array([ret[3], ret[2]])
+        # return read_output_files(0)
 
     def set_target(self, target):
         self.target = target
 
     def step(self, action, time):
         logging.info(f"Action: {action}")
-        target = read_state_files(time)
-        next_target = read_state_files(time + 1)
+        t = self.chrono.get_time()
 
-        state = read_output_files(time)
-        next_state = read_output_files(time + 1)
+        # target = read_state_files(time)
+        # next_target = read_state_files(time + 1)
+
+        # state = read_output_files(time)
+        # next_state = read_output_files(time + 1)
+        exchange_vec = [0.0, t, action[0], action[1], action[2]]
+
+        ret = self.shm.exchange(exchange_vec)
+
+        target = np.array([ret[5], ret[6]])
+        next_state = np.array([ret[2], ret[3]])
 
         done = False
-        reward = np.linalg.norm(target[0] - state[0])
+        reward = np.linalg.norm(target[0] - next_state[0])
 
-        return SYSResponse(state, next_state, next_target, reward, done)
+        return SYSResponse(next_state, target, reward, done)
