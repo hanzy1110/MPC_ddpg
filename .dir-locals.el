@@ -1,2 +1,2 @@
-((nil . ((conda-env-current-path . "pymc_env")
+((nil . ((conda-env-current-path . "mpc")
          )))

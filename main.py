@@ -126,7 +126,7 @@ if __name__ == "__main__":
         controller.epoch_data["epoch_value_loss"].append(controller.epoch_value_loss)
         controller.epoch_data["epoch_policy_loss"].append(controller.epoch_policy_loss)
 
-        epoch += 1
+        # epoch += 1
 
     def flatten_dict(LD):
         out = {}
@@ -151,4 +151,5 @@ if __name__ == "__main__":
 
     plt.savefig("misc/training_plot.jpg", dpi=600)
     controller.save_checkpoint(timestep)
-    # env.close()
+
+    env.close()
