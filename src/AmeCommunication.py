@@ -25,7 +25,7 @@ print(sys.path)
 import traceback
 
 try:
-    import binding_amecommunication
+    import src.binding_amecommunication as binding_amecommunication
 except Exception as e:
     print(e.__cause__)
     traceback.print_exc()
