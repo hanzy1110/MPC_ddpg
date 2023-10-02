@@ -6,8 +6,9 @@ import numpy as np
 from collections import namedtuple
 from src.helpers import Chrono
 
-# import AmeCommunication
-from src.amesim_python_api import AmeCommunication
+import AmeCommunication
+
+# from src.amesim_python_api import AmeCommunication
 
 DATA_FILE = "logs/data.txt"
 DATA_DIR = pathlib.Path(__file__).parent.parent / "data"
