@@ -7,6 +7,8 @@ import pathlib
 import numpy as np
 import torch
 
+import pandas as pd
+
 # from wrappers import NormalizedActions
 import time
 import matplotlib.pyplot as plt
@@ -16,9 +18,10 @@ from src.env import AmeSimEnv, read_state_files
 
 # Create logger
 
-PATH = os.getcwd()
-DATA_FILE = "logs/data.txt"
+# PATH = os.getcwd()
+PATH = __file__
 DATA_DIR = pathlib.Path(PATH).parent / "data"
+PLOTS_DIR = pathlib.Path(PATH).parent / "plots"
 LOG_FILE = pathlib.Path(PATH).parent / "log/events.log"
 RANDOM_SEED = 123456
 CHECKPOINT_DIR = pathlib.Path(PATH).parent / "checkpoints"
@@ -46,6 +49,20 @@ hidden_size = (
 
 if __name__ == "__main__":
     logging.info("Using device: {}".format(device))
+
+    logging.info("Previous plots")
+
+    fig, ax = plt.subplots(2, 1, sharex=True)
+    data_disp = pd.read_csv(DATA_DIR / "last_output_dis_target.csv")
+    data_vel = pd.read_csv(DATA_DIR / "last_output_velocity_target.csv")
+    ax[0].plot(data_disp["time"], data_disp["signal"])
+    ax[1].plot(data_vel["time"], data_vel["velocity"])
+
+    ax[0].set_xlabel("Time")
+    ax[0].set_ylabel("Displacement")
+    ax[1].set_ylabel("Velocity")
+
+    plt.savefig(PLOTS_DIR / "disp_target.png")
 
     # Create the env
     # kwargs = dict()
@@ -78,53 +95,58 @@ if __name__ == "__main__":
     time_last_checkpoint = time.time()
 
     while timestep <= MAX_TIMESTEPS:
-        epoch_return = 0
-        state = torch.Tensor([env.reset()]).to(device)
-        # while True:
+        if env.is_running:
+            epoch_return = 0
+            state = torch.Tensor([env.reset()]).to(device)
+            # while True:
 
-        controller.last_output_dis_target = read_state_files(timestep)[1]
+            controller.last_output_dis_target = read_state_files(timestep)[1]
 
-        # AGENT (MainControlLoop) returns an ACTION
-        # env returns enviroment response!
+            # AGENT (MainControlLoop) returns an ACTION
+            # env returns enviroment response!
 
-        it = 0
-        while True:
-            logging.info("--x--" * 20)
-            logging.info(f"Timestep {timestep} iter {it}")
-            if not isinstance(state, torch.Tensor):
-                state = torch.Tensor([state]).to(device)
+            it = 0
+            while True:
+                logging.info("--x--" * 20)
+                logging.info(f"Timestep {timestep} iter {it}")
+                if not isinstance(state, torch.Tensor):
+                    state = torch.Tensor([state]).to(device)
 
-            actions = controller.control_step(timestep, state)
+                actions = controller.control_step(timestep, state)
 
-            # TODO convert actions to torch?
-            # response = env.step(actions.cpu().numpy()[0], timestep)
-            response = env.step(actions, timestep)
-            epoch_return += response.reward
+                # TODO convert actions to torch?
+                # response = env.step(actions.cpu().numpy()[0], timestep)
+                response = env.step(actions, timestep)
+                epoch_return += response.reward
 
-            controller.update_memory(response, actions)
+                controller.update_memory(response, actions)
 
-            states.append(response.next_state)
-            controller.update_references(response.next_state)
-            state = response.next_state
-            env.set_target(state)
+                states.append(response.next_state)
+                controller.update_references(response.next_state)
+                state = response.next_state
+                env.set_target(state)
 
-            if len(controller.memories["agent_up"]) > BATCH_SIZE:
-                logging.info(f"TRAINING STEP => {controller.memories}")
-                controller.train_step(controller.ddpg_agent_up, "agent_up")
-                controller.train_step(controller.ddpg_agent_down, "agent_down")
-                controller.train_step(controller.ddpg_agent_in3, "agent_in3")
+                if len(controller.memories["agent_up"]) > BATCH_SIZE:
+                    logging.info(f"TRAINING STEP => {controller.memories}")
+                    controller.train_step(controller.ddpg_agent_up, "agent_up")
+                    controller.train_step(controller.ddpg_agent_down, "agent_down")
+                    controller.train_step(controller.ddpg_agent_in3, "agent_in3")
 
-            it += 1
-            if it >= MAX_ITERS:
-                break
-            # if done:
-            #     break
+                it += 1
+                if it >= MAX_ITERS:
+                    break
+                # if done:
+                #     break
 
-        timestep += 1
-        controller.epoch_data["rewards"].append(epoch_return)
+            timestep += 1
+            controller.epoch_data["rewards"].append(epoch_return)
 
-        controller.epoch_data["epoch_value_loss"].append(controller.epoch_value_loss)
-        controller.epoch_data["epoch_policy_loss"].append(controller.epoch_policy_loss)
+            controller.epoch_data["epoch_value_loss"].append(
+                controller.epoch_value_loss
+            )
+            controller.epoch_data["epoch_policy_loss"].append(
+                controller.epoch_policy_loss
+            )
 
         # epoch += 1
 
