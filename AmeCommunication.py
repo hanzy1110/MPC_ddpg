@@ -15,7 +15,10 @@ else:
     )
     sys.path.append(path_to_append)
 
+print("PATH TO APPEND=>")
 print(path_to_append)
+print("===" * 14)
+print("SYS PATH=>")
 print(sys.path)
 
 import binding_amecommunication
