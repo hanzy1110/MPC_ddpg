@@ -6,7 +6,8 @@ import numpy as np
 from collections import namedtuple
 from src.helpers import Chrono
 
-import src.AmeCommunication as AmeCommunication
+# import src.AmeCommunication as AmeCommunication
+import AmeCommunication
 
 # from src.amesim_python_api import AmeCommunication
 
