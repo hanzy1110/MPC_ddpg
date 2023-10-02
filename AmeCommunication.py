@@ -21,7 +21,14 @@ print("===" * 14)
 print("SYS PATH=>")
 print(sys.path)
 
-import binding_amecommunication
+
+import traceback
+
+try:
+    import binding_amecommunication
+except ImportError:
+    traceback.print_exc()
+
 import unittest
 
 
