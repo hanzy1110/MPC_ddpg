@@ -26,7 +26,8 @@ import traceback
 
 try:
     import binding_amecommunication
-except ImportError:
+except Exception as e:
+    print(e.__cause__)
     traceback.print_exc()
 
 import unittest
