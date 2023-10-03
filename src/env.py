@@ -121,15 +121,11 @@ class AmeSimEnv:
         state = read_output_files(time)
         next_state = read_output_files(time + 1)
         # exchange_vec = [0.0, t, action[0], action[1], action[2]]
-
         # ret = self.shm.exchange(exchange_vec)
-
         # target = np.array([ret[5], ret[6]])
         # next_state = np.array([ret[2], ret[3]])
-
         done = False
-        reward = np.linalg.norm(target[0] - next_state[0])
-
+        reward = np.linalg.norm(target[0] - state[0])
         return SYSResponse(state, next_state, target, reward, done)
 
     def close(self):

@@ -1,0 +1,8 @@
+/home/bm69/git/MPC_ddpg/main.py:100: UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at ../torch/csrc/utils/tensor_new.cpp:245.)
+  state = torch.Tensor([env.reset()]).to(device)
+Traceback (most recent call last):
+  File "/home/bm69/git/MPC_ddpg/main.py", line 164, in <module>
+    for k, v in flatten_dict(controller.epoch_data["epoch_value_loss"]):
+  File "/home/bm69/git/MPC_ddpg/main.py", line 157, in flatten_dict
+    out[k].append(v)
+KeyError: 'agent_up'

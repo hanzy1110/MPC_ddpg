@@ -2,6 +2,7 @@
 import logging
 import os
 import pathlib
+import json
 
 # import gym
 import numpy as np
@@ -12,9 +13,12 @@ import pandas as pd
 # from wrappers import NormalizedActions
 import time
 import matplotlib.pyplot as plt
+import scienceplots
 
-from src.main_window import MainControlLoop, BATCH_SIZE
-from src.env import AmeSimEnv, read_state_files
+plt.style.use(["science", "ieee"])
+
+from src.main_window import MainControlLoop, BATCH_SIZE, DDPGRes
+from src.env import AmeSimEnv, read_state_files, SYSResponse
 
 # Create logger
 
@@ -27,8 +31,8 @@ RANDOM_SEED = 123456
 CHECKPOINT_DIR = pathlib.Path(PATH).parent / "checkpoints"
 
 MAX_EPISODES = 10
-MAX_TIMESTEPS = 1000
-MAX_ITERS = 200
+MAX_TIMESTEPS = 1300
+MAX_ITERS = 50
 FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
 
@@ -38,6 +42,38 @@ logging.basicConfig(filename=LOG_FILE, level=logging.DEBUG, format=FORMAT)
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Special json encoder for numpy types"""
+
+    def default(self, obj):
+        if isinstance(
+            obj,
+            (
+                np.int_,
+                np.intc,
+                np.intp,
+                np.int8,
+                np.int16,
+                np.int32,
+                np.int64,
+                np.uint8,
+                np.uint16,
+                np.uint32,
+                np.uint64,
+            ),
+        ):
+            return int(obj)
+        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.ndarray,)):
+            return obj.tolist()
+        elif isinstance(obj, (torch.Tensor,)):
+            return obj.detach().numpy().tolist()
+
+        return json.JSONEncoder.default(self, obj)
+
 
 # Some parameters, which are not saved in the network files
 gamma = 0.99  # discount factor for reward (default: 0.99)
@@ -49,7 +85,6 @@ hidden_size = (
 
 if __name__ == "__main__":
     logging.info("Using device: {}".format(device))
-
     logging.info("Previous plots")
 
     fig, ax = plt.subplots(2, 1, sharex=True)
@@ -93,6 +128,8 @@ if __name__ == "__main__":
     epoch = 0
     t = 0
     time_last_checkpoint = time.time()
+    responses = []
+    action_arr = []
 
     while timestep <= MAX_TIMESTEPS:
         if env.is_running:
@@ -118,6 +155,8 @@ if __name__ == "__main__":
                 # response = env.step(actions.cpu().numpy()[0], timestep)
                 response = env.step(actions, timestep)
                 epoch_return += response.reward
+
+                responses.append({"response": response, "actions": actions})
 
                 controller.update_memory(response, actions)
 
@@ -148,30 +187,44 @@ if __name__ == "__main__":
                 controller.epoch_policy_loss
             )
 
-        # epoch += 1
+    with open(DATA_DIR / "results.json", "w") as _file:
+        # for r in responses:
+        json.dump(responses, _file, indent=4, cls=NumpyEncoder)
 
     def flatten_dict(LD):
         out = {}
         for vals in LD:
             for k, v in vals.items():
-                out[k].append(v)
+                try:
+                    out[k].append(v)
+                except Exception as e:
+                    out[k] = []
+                    out[k].append(v)
 
         return out
 
     fig, ax = plt.subplots(2, 2)
-    ax[0, 0].plot(controller.epoch_data["rewards"])
 
-    for k, v in flatten_dict(controller.epoch_data["epoch_value_loss"]):
+    fig.set_size_inches(6.2, 6.2)
+
+    ax[0, 0].plot(controller.epoch_data["rewards"])
+    ax[0, 0].set_title("Rewards")
+
+    for k, v in flatten_dict(controller.epoch_data["epoch_value_loss"]).items():
         ax[0, 1].plot(v, label=k)
-    for k, v in flatten_dict(controller.epoch_data["epoch_policy_loss"]):
+    for k, v in flatten_dict(controller.epoch_data["epoch_policy_loss"]).items():
         ax[1, 0].plot(v, label=k)
 
     ax[1, 1].plot([s[1] for s in states], label="Displacement")
 
-    for a in ax:
+    ax[0, 1].set_title("Epoch Value Loss")
+    ax[1, 0].set_title("Epoch Policy Loss")
+    ax[1, 1].set_title("Displacement")
+
+    for a in ax.flatten():
         a.legend()
 
-    plt.savefig("misc/training_plot.jpg", dpi=600)
+    plt.savefig(PLOTS_DIR / "training_plot.jpg", dpi=600)
     controller.save_checkpoint(timestep)
 
     env.close()
