@@ -163,9 +163,9 @@ class MainControlLoop(object):
             # * 0.52
         )
 
-        pred_state_val_in3 = torch.Tensor([state_val_in3.state]).to(DEVICE)
-        pred_state_val_up = torch.Tensor([state_val_up.state]).to(DEVICE)
-        pred_state_val_down = torch.Tensor([state_val_down.state]).to(DEVICE)
+        pred_state_val_in3 = torch.Tensor([state_val_in3.state, state_val_in3.control]).to(DEVICE)
+        pred_state_val_up = torch.Tensor([state_val_up.state, state_val_up.control]).to(DEVICE)
+        pred_state_val_down = torch.Tensor([state_val_down.state, state_val_down.control]).to(DEVICE)
 
         # predicted state ==> a function of the the MPC control
         output_ddpg_up = self.compute_actions(

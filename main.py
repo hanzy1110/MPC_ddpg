@@ -76,11 +76,12 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 # Some parameters, which are not saved in the network files
-gamma = 0.99  # discount factor for reward (default: 0.99)
-tau = 0.001  # discount factor for model (default: 0.001)
+# gamma = 0.99  # discount factor for reward (default: 0.99)
+gamma = 0.7  # discount factor for reward (default: 0.99)
+tau = 0.3  # discount factor for model (default: 0.001)
 hidden_size = (
-    10,
-    20,
+    40,
+    80,
 )  # size of the hidden layers (Deepmind: 400 and 300; OpenAI: 64)
 
 if __name__ == "__main__":

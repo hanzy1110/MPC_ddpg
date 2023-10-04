@@ -125,7 +125,7 @@ class AmeSimEnv:
         # target = np.array([ret[5], ret[6]])
         # next_state = np.array([ret[2], ret[3]])
         done = False
-        reward = np.linalg.norm(target[0] - state[0])
+        reward = -np.linalg.norm(target[0] - state[0])
         return SYSResponse(state, next_state, target, reward, done)
 
     def close(self):
