@@ -117,7 +117,7 @@ class MainControlLoop(object):
 
     def compute_actions(self, agent, state, name):
         action = agent.calc_action(state, action_noise=self.get_noise(name))
-        logging.info(f"ACTION FROM DDPG {name} => action")
+        logging.info(f"ACTION FROM DDPG {name} => {action}")
         q_value = agent.critic(state, action)
         return DDPGRes(action=action, q_value=q_value)
 
