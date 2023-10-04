@@ -38,8 +38,6 @@ BATCH_SIZE = 10
 
 def parse_mpc_response(resp:MPCResult):
     res = np.hstack([resp.control, resp.state])
-    print(res.shape)
-    assert False
     return torch.Tensor(res).to(DEVICE)
 
 

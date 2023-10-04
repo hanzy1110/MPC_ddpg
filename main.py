@@ -111,7 +111,7 @@ if __name__ == "__main__":
     np.random.seed(RANDOM_SEED)
 
     ddpg_params = {
-        "num_inputs": 6,
+        "num_inputs": 9,
         "gamma": gamma,
         "tau": tau,
         "hidden_size": hidden_size,
