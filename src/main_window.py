@@ -12,7 +12,7 @@ from collections import namedtuple
 # import AmeCommunication
 
 import logging
-from .mpc import MPCControllerdown, MPCControllerup, MPCControllerupp
+from .mpc import MPCControllerdown, MPCControllerup, MPCControllerupp, MPCResult
 from .helpers import Chart, Chrono
 from .ddpg import DDPG
 from .drl_utils.noise import OrnsteinUhlenbeckActionNoise
@@ -35,6 +35,12 @@ SYSResponse = namedtuple("SYSResponse", ["velocity", "displacement"])
 
 MEMORY_SIZE = 10
 BATCH_SIZE = 10
+
+def parse_mpc_response(resp:MPCResult):
+    res = np.hstack([resp.control, resp.state])
+    print(res.shape)
+    assert False
+    return torch.Tensor(res).to(DEVICE)
 
 
 class MainControlLoop(object):
@@ -163,9 +169,12 @@ class MainControlLoop(object):
             # * 0.52
         )
 
-        pred_state_val_in3 = torch.Tensor([state_val_in3.state, state_val_in3.control]).to(DEVICE)
-        pred_state_val_up = torch.Tensor([state_val_up.state, state_val_up.control]).to(DEVICE)
-        pred_state_val_down = torch.Tensor([state_val_down.state, state_val_down.control]).to(DEVICE)
+        pred_state_val_in3 = parse_mpc_response(state_val_in3)
+        pred_state_val_up = parse_mpc_response(state_val_up)
+        pred_state_val_down = parse_mpc_response(state_val_down)
+        # pred_state_val_in3 = torch.Tensor([state_val_in3.state, state_val_in3.control]).to(DEVICE)
+        # pred_state_val_up = torch.Tensor([state_val_up.state, state_val_up.control]).to(DEVICE)
+        # pred_state_val_down = torch.Tensor([state_val_down.state, state_val_down.control]).to(DEVICE)
 
         # predicted state ==> a function of the the MPC control
         output_ddpg_up = self.compute_actions(
